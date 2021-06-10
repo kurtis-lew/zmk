@@ -149,7 +149,8 @@ static int on_tap_dance_binding_pressed(struct zmk_behavior_binding *binding,
     }
     tap_dance->is_pressed = true;
     stop_timer(tap_dance);
-    if (++tap_dance->counter >= cfg->behavior_count) {
+    tap_dance->counter ++;
+    if (tap_dance->counter >= cfg->behavior_count) {
         press_tap_dance_behavior(tap_dance, event.timestamp);
         tap_dance->tap_dance_decided = true;
         return ZMK_BEHAVIOR_OPAQUE;
@@ -180,6 +181,7 @@ void behavior_tap_dance_timer_handler(struct k_work *item) {
     if (tap_dance->position == ZMK_BHV_TAP_DANCE_POSITION_FREE) {
         return;
     }
+<<<<<<< Updated upstream
     if (tap_dance->timer_cancelled) {
         tap_dance->timer_cancelled = false;
     } else {
@@ -192,6 +194,16 @@ void behavior_tap_dance_timer_handler(struct k_work *item) {
         release_tap_dance_behavior(tap_dance, tap_dance->release_at);
         return;
     }
+=======
+    tap_dance->timer_cancelled = tap_dance->timer_cancelled ? false;
+    press_tap_dance_behavior(tap_dance, tap_dance->release_at);
+    if (tap_dance->is_pressed) {
+        tap_dance->tap_dance_decided = true;
+        return;
+    }
+    release_tap_dance_behavior(tap_dance, tap_dance->release_at);
+    return;
+>>>>>>> Stashed changes
 }
 
 static const struct behavior_driver_api behavior_tap_dance_driver_api = {
