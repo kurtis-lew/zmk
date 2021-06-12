@@ -145,11 +145,13 @@ static int on_tap_dance_binding_pressed(struct zmk_behavior_binding *binding,
     // No active tap dance found on keypress location, create a new one
     if (tap_dance == NULL) {
         tap_dance = store_tap_dance(event.position, cfg);
+        LOG_DBG("%d creating new tap dance", event.position);
         reset_timer(tap_dance, event);
         return ZMK_BEHAVIOR_OPAQUE;
     }
     // An active tap dance was found at the keypress location. Stop the timer.
     tap_dance->is_pressed = true;
+    LOG_DBG("%d tap dance re-pressed", event.position);
     stop_timer(tap_dance);
     // Increment the counter. Check if the counter has reached the maximum behavior number.
     tap_dance->counter++;
@@ -168,15 +170,17 @@ static int on_tap_dance_binding_pressed(struct zmk_behavior_binding *binding,
 static int on_tap_dance_binding_released(struct zmk_behavior_binding *binding,
                                          struct zmk_behavior_binding_event event) {
     // Code executes when the tap dance key is released.
+    LOG_DBG("%d tap dance keybind released", event.position);
     struct active_tap_dance *tap_dance = find_tap_dance(event.position);
     if (tap_dance == NULL) {
         LOG_ERR("ACTIVE TAP DANCE CLEARED TOO EARLY");
         return ZMK_BEHAVIOR_OPAQUE;
     }
     tap_dance->is_pressed = false;
-    // An active tap dance has already been decided and is registering keypresses. Release tap dance
-    // on key-release.
+    // An active tap dance has already been decided and is registering keypresses.
+    // Release tap dance on key-release.
     if (tap_dance->tap_dance_decided) {
+        LOG_DBG("Maximum count reached and/or key is held! Counter reached: %d", tap_dance->counter);
         release_tap_dance_behavior(tap_dance, event.timestamp);
         tap_dance->tap_dance_decided = false;
     }
@@ -184,6 +188,7 @@ static int on_tap_dance_binding_released(struct zmk_behavior_binding *binding,
 }
 
 void behavior_tap_dance_timer_handler(struct k_work *item) {
+    LOG_DBG("Timer Handler executes");
     // Timer for tap dance has ran out.
     struct active_tap_dance *tap_dance = CONTAINER_OF(item, struct active_tap_dance, release_timer);
     if (tap_dance->position == ZMK_BHV_TAP_DANCE_POSITION_FREE) {
@@ -197,6 +202,7 @@ void behavior_tap_dance_timer_handler(struct k_work *item) {
         return;
     }
     // Tap dance is not held. Release the tap dance.
+    LOG_DBG("Tap dance releases immediately! Counter reached: %d", tap_dance->counter);
     release_tap_dance_behavior(tap_dance, tap_dance->release_at);
     return;
 }
@@ -224,6 +230,7 @@ static int tap_dance_position_state_changed_listener(const zmk_event_t *eh) {
         }
         if (tap_dance->position != ev->position && tap_dance->timer_started) {
             // Resolve tap dance immediately before new keypress.
+            LOG_DBG("Tap dance interrupted, position changed.");
             stop_timer(tap_dance);
             press_tap_dance_behavior(tap_dance, tap_dance->release_at);
             release_tap_dance_behavior(tap_dance, tap_dance->release_at);
