@@ -12,6 +12,7 @@
 
 #include <zmk/usb.h>
 #include <zmk/hid.h>
+#include <zmk/endpoints.h>
 #include <zmk/keymap.h>
 
 #if IS_ENABLED(CONFIG_ZMK_POINTING_SMOOTH_SCROLLING)
@@ -31,6 +32,15 @@ static const struct device *hid_dev;
 static K_SEM_DEFINE(hid_sem, 1, 1);
 
 static void in_ready_cb(const struct device *dev) { k_sem_give(&hid_sem); }
+
+static inline void
+zmk_process_keyboard_feature_report(struct zmk_hid_keyboard_feature_report_body *report,
+                                    struct zmk_endpoint_instance endpoint) {
+    LOG_DBG("USB HID FEATURE: endpoint=%d, form_factor=%d, key_type=%d, "
+            "physical_layout = %d, vendor_specific_physical_layout=%d",
+            endpoint.transport, report->form_factor, report->key_type, report->physical_layout,
+            report->vendor_specific_physical_layout);
+}
 
 #define HID_GET_REPORT_TYPE_MASK 0xff00
 #define HID_GET_REPORT_ID_MASK 0x00ff
@@ -65,6 +75,21 @@ static int get_report_cb(const struct device *dev, struct usb_setup_packet *setu
     switch (setup->wValue & HID_GET_REPORT_TYPE_MASK) {
     case HID_REPORT_TYPE_FEATURE:
         switch (setup->wValue & HID_GET_REPORT_ID_MASK) {
+        case ZMK_HID_REPORT_ID_KEYBOARD:
+            LOG_DBG("USB: get report cb");
+            static struct zmk_hid_keyboard_feature_report keyboard_feature_report;
+
+            *len = sizeof(struct zmk_hid_keyboard_feature_report);
+
+            keyboard_feature_report.body.form_factor = 2;
+            keyboard_feature_report.body.key_type = 2;
+            keyboard_feature_report.body.physical_layout = 3;
+            keyboard_feature_report.body.vendor_specific_physical_layout = 0x00;
+            keyboard_feature_report.body.ietf_language_tag_index = 0x00;
+            keyboard_feature_report.body.input_assist_controls = 0x00;
+            *data = (uint8_t *)&keyboard_feature_report;
+            LOG_DBG("len: %d", *len);
+            break;
 #if IS_ENABLED(CONFIG_ZMK_POINTING_SMOOTH_SCROLLING)
         case ZMK_HID_REPORT_ID_MOUSE:
             static struct zmk_hid_mouse_resolution_feature_report res_feature_report;
@@ -124,6 +149,22 @@ static int set_report_cb(const struct device *dev, struct usb_setup_packet *setu
     switch (setup->wValue & HID_GET_REPORT_TYPE_MASK) {
     case HID_REPORT_TYPE_FEATURE:
         switch (setup->wValue & HID_GET_REPORT_ID_MASK) {
+        case ZMK_HID_REPORT_ID_KEYBOARD:
+            LOG_DBG("USB: set report cb");
+            if (*len != sizeof(struct zmk_hid_keyboard_feature_report)) {
+                LOG_DBG("len: %d", *len);
+                return -EINVAL;
+            }
+
+            struct zmk_hid_keyboard_feature_report *report =
+                (struct zmk_hid_keyboard_feature_report *)*data;
+            struct zmk_endpoint_instance endpoint = {
+                .transport = ZMK_TRANSPORT_USB,
+            };
+
+            zmk_process_keyboard_feature_report(&report->body, endpoint);
+
+            break;
 #if IS_ENABLED(CONFIG_ZMK_POINTING_SMOOTH_SCROLLING)
         case ZMK_HID_REPORT_ID_MOUSE:
             if (*len != sizeof(struct zmk_hid_mouse_resolution_feature_report)) {

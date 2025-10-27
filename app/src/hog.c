@@ -25,6 +25,15 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/hid_indicators.h>
 #endif // IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
 
+static inline void
+zmk_process_keyboard_feature_report(struct zmk_hid_keyboard_feature_report_body *report,
+                                    struct zmk_endpoint_instance endpoint) {
+    LOG_DBG("HOG FEATURE: endpoint=%d, form_factor=%d, key_type=%d, "
+            "physical_layout = %d, vendor_specific_physical_layout=%d",
+            endpoint.transport, report->form_factor, report->key_type, report->physical_layout,
+            report->vendor_specific_physical_layout);
+}
+
 enum {
     HIDS_REMOTE_WAKE = BIT(0),
     HIDS_NORMALLY_CONNECTABLE = BIT(1),
@@ -56,6 +65,11 @@ enum {
 static struct hids_report input = {
     .id = ZMK_HID_REPORT_ID_KEYBOARD,
     .type = HIDS_INPUT,
+};
+
+static struct hids_report feature = {
+    .id = ZMK_HID_REPORT_ID_KEYBOARD,
+    .type = HIDS_FEATURE,
 };
 
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
@@ -222,6 +236,65 @@ static ssize_t write_hids_mouse_feature_report(struct bt_conn *conn,
 
 #endif // IS_ENABLED(CONFIG_ZMK_POINTING)
 
+static ssize_t read_hids_keyboard_feature_report(struct bt_conn *conn,
+                                                 const struct bt_gatt_attr *attr, void *buf,
+                                                 uint16_t len, uint16_t offset) {
+
+    int profile = zmk_ble_profile_index(bt_conn_get_dst(conn));
+    if (profile < 0) {
+        LOG_DBG("   BT_ATT_ERR_UNLIKELY");
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
+
+    struct zmk_endpoint_instance endpoint = {
+        .transport = ZMK_TRANSPORT_BLE,
+        .ble = {.profile_index = profile},
+    };
+
+    // Todo: Retrieve feature report from profile endpoint.
+
+    struct zmk_hid_keyboard_feature_report_body report = {
+        .form_factor = 2,
+        .key_type = 2,
+        .physical_layout = 3,
+        .vendor_specific_physical_layout = 0x00,
+        .ietf_language_tag_index = 0x00,
+        .input_assist_controls = 0x00,
+    };
+    LOG_DBG("READING FEATURE REPORT");
+    zmk_process_keyboard_feature_report(&report, endpoint);
+
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &report,
+                             sizeof(struct zmk_hid_keyboard_feature_report_body));
+}
+
+static ssize_t write_hids_keyboard_feature_report(struct bt_conn *conn,
+                                                  const struct bt_gatt_attr *attr, const void *buf,
+                                                  uint16_t len, uint16_t offset, uint8_t flags) {
+    if (offset != 0) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
+    }
+    if (len != sizeof(struct zmk_hid_keyboard_feature_report_body)) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+
+    struct zmk_hid_keyboard_feature_report_body *report =
+        (struct zmk_hid_keyboard_feature_report_body *)buf;
+    int profile = zmk_ble_profile_index(bt_conn_get_dst(conn));
+    if (profile < 0) {
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
+
+    struct zmk_endpoint_instance endpoint = {.transport = ZMK_TRANSPORT_BLE,
+                                             .ble = {
+                                                 .profile_index = profile,
+                                             }};
+    zmk_process_keyboard_feature_report(report, endpoint);
+
+    LOG_DBG("WRITING FEATURE REPORT");
+    return len;
+}
+
 // static ssize_t write_proto_mode(struct bt_conn *conn,
 //                                 const struct bt_gatt_attr *attr,
 //                                 const void *buf, uint16_t len, uint16_t offset,
@@ -269,6 +342,14 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CCC(input_ccc_changed, BT_GATT_PERM_READ_ENCRYPT | BT_GATT_PERM_WRITE_ENCRYPT),
     BT_GATT_DESCRIPTOR(BT_UUID_HIDS_REPORT_REF, BT_GATT_PERM_READ_ENCRYPT, read_hids_report_ref,
                        NULL, &consumer_input),
+
+    BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE | BT_GATT_CHRC_WRITE_WITHOUT_RESP,
+                           BT_GATT_PERM_READ_ENCRYPT | BT_GATT_PERM_WRITE_ENCRYPT,
+                           read_hids_keyboard_feature_report, write_hids_keyboard_feature_report,
+                           NULL),
+    BT_GATT_DESCRIPTOR(BT_UUID_HIDS_REPORT_REF, BT_GATT_PERM_READ_ENCRYPT, read_hids_report_ref,
+                       NULL, &feature),
 
 #if IS_ENABLED(CONFIG_ZMK_POINTING)
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT, BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,

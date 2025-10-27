@@ -100,6 +100,8 @@
 #define HID_USAGE16(a, b) HID_ITEM(HID_ITEM_TAG_USAGE, HID_ITEM_TYPE_LOCAL, 2), a, b
 
 #define HID_USAGE16_SINGLE(a) HID_USAGE16((a & 0xFF), ((a >> 8) & 0xFF))
+#define HID_USAGE_MIN16_SINGLE(a) HID_USAGE_MIN16((a & 0xFF), ((a >> 8) & 0xFF))
+#define HID_USAGE_MAX16_SINGLE(a) HID_USAGE_MAX16((a & 0xFF), ((a >> 8) & 0xFF))
 
 static const uint8_t zmk_hid_report_desc[] = {
     HID_USAGE_PAGE(HID_USAGE_GEN_DESKTOP),
@@ -158,6 +160,15 @@ static const uint8_t zmk_hid_report_desc[] = {
 #else
 #error "A proper HID report type must be selected"
 #endif
+
+    HID_USAGE_PAGE(HID_USAGE_CONSUMER),
+    HID_USAGE16_SINGLE(HID_USAGE_CONSUMER_EXTENDED_KEYBOARD_ATTRIBUTES_COLLECTION),
+    HID_COLLECTION(HID_COLLECTION_LOGICAL),
+    HID_USAGE_MIN16_SINGLE(HID_USAGE_CONSUMER_KEYBOARD_FORM_FACTOR),
+    HID_USAGE_MAX16_SINGLE(HID_USAGE_CONSUMER_IMPLEMENTED_KEYBOARD_INPUT_ASSIST_CONTROLS),
+    HID_REPORT_COUNT(0x06),
+    HID_FEATURE(ZMK_HID_MAIN_VAL_CONST | ZMK_HID_MAIN_VAL_VAR | ZMK_HID_MAIN_VAL_ABS),
+    HID_END_COLLECTION,
 
     HID_END_COLLECTION,
     HID_USAGE_PAGE(HID_USAGE_CONSUMER),
@@ -340,6 +351,20 @@ struct zmk_hid_mouse_resolution_feature_report {
 #endif // IS_ENABLED(CONFIG_ZMK_POINTING_SMOOTH_SCROLLING)
 
 #endif // IS_ENABLED(CONFIG_ZMK_POINTING)
+
+struct zmk_hid_keyboard_feature_report_body {
+    uint8_t form_factor;
+    uint8_t key_type;
+    uint8_t physical_layout;
+    uint8_t vendor_specific_physical_layout;
+    uint8_t ietf_language_tag_index;
+    uint8_t input_assist_controls;
+} __packed;
+
+struct zmk_hid_keyboard_feature_report {
+    uint8_t report_id;
+    struct zmk_hid_keyboard_feature_report_body body;
+} __packed;
 
 zmk_mod_flags_t zmk_hid_get_explicit_mods(void);
 int zmk_hid_register_mod(zmk_mod_t modifier);
