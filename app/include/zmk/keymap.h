@@ -58,6 +58,11 @@ const struct zmk_behavior_binding *zmk_keymap_get_layer_binding_at_idx(zmk_keyma
 int zmk_keymap_set_layer_binding_at_idx(zmk_keymap_layer_id_t layer, uint8_t binding_idx,
                                         const struct zmk_behavior_binding binding);
 
+#if IS_ENABLED(CONFIG_ZMK_KEYMAP_SENSORS)
+int zmk_keymap_set_sensor_binding_at_idx(zmk_keymap_layer_id_t layer_id, uint8_t binding_idx,
+                                         struct zmk_behavior_binding binding);
+#endif
+
 #if IS_ENABLED(CONFIG_ZMK_KEYMAP_LAYER_REORDERING)
 
 int zmk_keymap_add_layer(void);
@@ -68,6 +73,11 @@ int zmk_keymap_move_layer(zmk_keymap_layer_index_t start_idx, zmk_keymap_layer_i
 
 int zmk_keymap_set_layer_name(zmk_keymap_layer_id_t id, const char *name, size_t size);
 
+#endif
+
+#if IS_ENABLED(CONFIG_ZMK_KEYMAP_SENSORS)
+const struct zmk_behavior_binding *
+zmk_keymap_get_sensor_binding_at_idx(zmk_keymap_layer_id_t layer_id, uint8_t binding_idx);
 #endif
 
 /**

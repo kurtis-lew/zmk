@@ -19,6 +19,7 @@
 #endif
 
 const struct zmk_sensor_config *zmk_sensors_get_config_at_index(uint8_t sensor_index);
+void zmk_sensors_set_config_at_index(uint8_t sensor_index, uint16_t triggers_per_rotation);
 
 struct zmk_sensor_config {
     uint16_t triggers_per_rotation;
