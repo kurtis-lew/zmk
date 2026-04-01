@@ -4,10 +4,12 @@ manifest:
       url-base: https://github.com/zephyrproject-rtos
     - name: zmkfirmware
       url-base: https://github.com/zmkfirmware
+    - name: kurtis-lew
+      url-base: https://github.com/kurtis-lew
   projects:
     - name: zephyr
-      remote: zmkfirmware
-      revision: v4.1.0+zmk-fixes
+      remote: kurtis-lew
+      revision: backport-nrf54lm20
       clone-depth: 1
       import:
         name-blocklist:
